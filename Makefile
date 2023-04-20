@@ -97,6 +97,8 @@ test-migration-postgres:
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 3 && \
 	go run ./scripts/loaddata.go $${ENGINE} $${URI} $${TOTALTUPLES} && \
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 4 && \
+	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 5 && \
+	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 4 && \
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 3; \
 	} > migration-postgres.log 2>&1
 
@@ -110,6 +112,8 @@ test-migration-mysql:
 	docker run -d --name $${ENGINE} -p 3306:3306 -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_DATABASE=openfga mysql:8 --secure_file_priv=/tmp && \
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 3 && \
 	go run ./scripts/loaddata.go $${ENGINE} $${URI} $${TOTALTUPLES} && \
+	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 4 && \
+	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 5 && \
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 4 && \
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 3; \
 	} > migration-mysql.log 2>&1
