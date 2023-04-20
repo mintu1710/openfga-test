@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - feat-split-user-column
+      - feat-split-user-column-part2
 
 permissions:
   contents: read

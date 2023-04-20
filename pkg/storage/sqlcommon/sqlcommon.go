@@ -100,13 +100,15 @@ func NewConfig(opts ...DatastoreOption) *Config {
 }
 
 type TupleRecord struct {
-	Store      string
-	ObjectType string
-	ObjectID   string
-	Relation   string
-	User       string
-	Ulid       string
-	InsertedAt time.Time
+	Store          string
+	ObjectType     string
+	ObjectID       string
+	Relation       string
+	UserObjectType string
+	UserObjectID   string
+	UserRelation   string
+	Ulid           string
+	InsertedAt     time.Time
 }
 
 func (t *TupleRecord) AsTuple() *openfgapb.Tuple {
@@ -114,7 +116,7 @@ func (t *TupleRecord) AsTuple() *openfgapb.Tuple {
 		Key: &openfgapb.TupleKey{
 			Object:   tupleUtils.BuildObject(t.ObjectType, t.ObjectID),
 			Relation: t.Relation,
-			User:     t.User,
+			User:     FromUserParts(t.UserObjectType, t.UserObjectID, t.UserRelation),
 		},
 		Timestamp: timestamppb.New(t.InsertedAt),
 	}
@@ -166,7 +168,7 @@ func (t *SQLTupleIterator) next() (*TupleRecord, error) {
 	}
 
 	var record TupleRecord
-	err := t.rows.Scan(&record.Store, &record.ObjectType, &record.ObjectID, &record.Relation, &record.User, &record.Ulid, &record.InsertedAt)
+	err := t.rows.Scan(&record.Store, &record.ObjectType, &record.ObjectID, &record.Relation, &record.UserObjectType, &record.UserObjectID, &record.UserRelation, &record.Ulid, &record.InsertedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -310,22 +312,24 @@ func Write(ctx context.Context, dbInfo *DBInfo, store string, deletes storage.De
 
 	changelogBuilder := dbInfo.stbl.
 		Insert("changelog").
-		Columns("store", "object_type", "object_id", "relation", "_user", "user_object_type", "user_object_id", "user_relation", "operation", "ulid", "inserted_at")
+		Columns("store", "object_type", "object_id", "relation", "user_object_type", "user_object_id", "user_relation", "operation", "ulid", "inserted_at")
 
 	deleteBuilder := dbInfo.stbl.Delete("tuple")
 
 	for _, tk := range deletes {
 		id := ulid.MustNew(ulid.Timestamp(now), ulid.DefaultEntropy()).String()
 		objectType, objectID := tupleUtils.SplitObject(tk.GetObject())
+		userObjectType, userObjectID, userRelation := ToUserParts(tk.GetUser())
 
 		res, err := deleteBuilder.
 			Where(sq.Eq{
-				"store":       store,
-				"object_type": objectType,
-				"object_id":   objectID,
-				"relation":    tk.GetRelation(),
-				"_user":       tk.GetUser(),
-				"user_type":   tupleUtils.GetUserTypeFromUser(tk.GetUser()),
+				"store":            store,
+				"object_type":      objectType,
+				"object_id":        objectID,
+				"relation":         tk.GetRelation(),
+				"user_object_type": userObjectType,
+				"user_object_id":   userObjectID,
+				"user_relation":    userRelation,
 			}).
 			RunWith(txn). // Part of a txn
 			ExecContext(ctx)
@@ -342,14 +346,12 @@ func Write(ctx context.Context, dbInfo *DBInfo, store string, deletes storage.De
 			return storage.InvalidWriteInputError(tk, openfgapb.TupleOperation_TUPLE_OPERATION_DELETE)
 		}
 
-		userObjectType, userObjectID, userRelation := ToUserParts(tk.GetUser())
-
-		changelogBuilder = changelogBuilder.Values(store, objectType, objectID, tk.GetRelation(), tk.GetUser(), userObjectType, userObjectID, userRelation, openfgapb.TupleOperation_TUPLE_OPERATION_DELETE, id, dbInfo.sqlTime)
+		changelogBuilder = changelogBuilder.Values(store, objectType, objectID, tk.GetRelation(), userObjectType, userObjectID, userRelation, openfgapb.TupleOperation_TUPLE_OPERATION_DELETE, id, dbInfo.sqlTime)
 	}
 
 	insertBuilder := dbInfo.stbl.
 		Insert("tuple").
-		Columns("store", "object_type", "object_id", "relation", "_user", "user_type", "user_object_type", "user_object_id", "user_relation", "ulid", "inserted_at")
+		Columns("store", "object_type", "object_id", "relation", "user_object_type", "user_object_id", "user_relation", "ulid", "inserted_at")
 
 	for _, tk := range writes {
 		id := ulid.MustNew(ulid.Timestamp(now), ulid.DefaultEntropy()).String()
@@ -357,14 +359,14 @@ func Write(ctx context.Context, dbInfo *DBInfo, store string, deletes storage.De
 		userObjectType, userObjectID, userRelation := ToUserParts(tk.GetUser())
 
 		_, err = insertBuilder.
-			Values(store, objectType, objectID, tk.GetRelation(), tk.GetUser(), tupleUtils.GetUserTypeFromUser(tk.GetUser()), userObjectType, userObjectID, userRelation, id, dbInfo.sqlTime).
+			Values(store, objectType, objectID, tk.GetRelation(), userObjectType, userObjectID, userRelation, id, dbInfo.sqlTime).
 			RunWith(txn). // Part of a txn
 			ExecContext(ctx)
 		if err != nil {
 			return HandleSQLError(err, tk)
 		}
 
-		changelogBuilder = changelogBuilder.Values(store, objectType, objectID, tk.GetRelation(), tk.GetUser(), userObjectType, userObjectID, userRelation, openfgapb.TupleOperation_TUPLE_OPERATION_WRITE, id, dbInfo.sqlTime)
+		changelogBuilder = changelogBuilder.Values(store, objectType, objectID, tk.GetRelation(), userObjectType, userObjectID, userRelation, openfgapb.TupleOperation_TUPLE_OPERATION_WRITE, id, dbInfo.sqlTime)
 	}
 
 	if len(writes) > 0 || len(deletes) > 0 {

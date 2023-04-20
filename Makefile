@@ -98,6 +98,8 @@ test-migration-postgres:
 	go run ./scripts/loaddata.go $${ENGINE} $${URI} $${TOTALTUPLES} && \
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 4 && \
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 5 && \
+	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 6 && \
+	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 5 && \
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 4 && \
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 3; \
 	} > migration-postgres.log 2>&1
@@ -113,6 +115,8 @@ test-migration-mysql:
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 3 && \
 	go run ./scripts/loaddata.go $${ENGINE} $${URI} $${TOTALTUPLES} && \
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 4 && \
+	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 5 && \
+	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 6 && \
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 5 && \
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 4 && \
 	./openfga migrate --datastore-engine $${ENGINE} --datastore-uri $${URI} --version 3; \
